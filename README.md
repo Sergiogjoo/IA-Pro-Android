@@ -1,29 +1,39 @@
-# IA Pro — Generador de Apps + Logos + Corrección de Errores
+# IA Pro — Versión Premium Completa
 
-Ahora puedes **guardar archivos** directamente desde el chat.
+Aplicación Android premium con Gemini para:
 
-## Novedades
+- Generar **aplicaciones web completas** (HTML + CSS + JS)
+- Generar **aplicaciones Android** (Kotlin + Jetpack Compose)
+- **Corregir errores** de código
+- Crear **logos e imágenes**
+- Chat inteligente en múltiples modos
+- Guardar archivos y imágenes fácilmente
 
-- Botón de **descargar** en cada respuesta de la IA
-- Guarda código como `.html`, `.kt` o `.txt` en la carpeta Descargas
-- Guarda imágenes/logos en la galería (carpeta Pictures/IA_Pro)
-- Mejor formato de código (fuente monoespaciada cuando detecta código)
+## Características Premium
 
-## Modos
+- Interfaz moderna y oscura profesional
+- Generación de código completo y listo para usar
+- Guardado de archivos en Descargas / Galería
+- Formato de código mejorado (fuente monoespaciada)
+- Múltiples modos especializados
 
-| Modo              | Qué hace                              |
-|-------------------|------------------------------------------|
-| App Web           | Genera web apps completas                |
-| App Android       | Genera código Android (Compose)        |
-| Corregir errores  | Arregla bugs                             |
-| Logo / Imagen     | Genera logos e imágenes                 |
+## Cómo empezar
 
-## Uso
+1. Clona o descarga este repositorio
+2. Ábrelo en Android Studio
+3. Sincroniza Gradle
+4. Obtén tu API Key gratuita en [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+5. En la app → icono de Ajustes → pega la key
+6. Elige un modo y empieza a crear
 
-1. Pon tu API Key de Gemini
-2. Elige un modo y genera
-3. Pulsa el icono de **descarga** en la respuesta para guardar el archivo
+## Modos disponibles
+
+- **App Web** → Aplicaciones web completas
+- **App Android** → Código Android nativo
+- **Corregir errores** → Debugging
+- **Logo / Imagen** → Generación de imágenes
+- **Código / Pro / Análisis / Resumen / Creativo**
 
 ---
 
-Actualizado por Grok
+**IA Pro Premium** — Hecho para Sergiogjoo

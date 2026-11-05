@@ -48,7 +48,7 @@ import java.io.FileOutputStream
 fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
     val context = LocalContext.current
     val listState = rememberLazyListState()
-    var snackbarHostState = remember { SnackbarHostState() }
+    val snackbarHostState = remember { SnackbarHostState() }
     var snackbarMessage by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
@@ -71,116 +71,152 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
     if (viewModel.showSettings.value) {
         AlertDialog(
             onDismissRequest = { viewModel.showSettings.value = false },
-            title = { Text("API Key de Gemini") },
+            title = { Text("Configuración Premium") },
             text = {
-                Column {
-                    Text("Obtén una key gratis en:\naistudio.google.com/apikey", fontSize = 13.sp, color = Muted)
-                    Spacer(modifier = Modifier.height(12.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("API Key de Gemini (gratis)", fontWeight = FontWeight.Medium)
+                    Text("Consíguela en aistudio.google.com/apikey", fontSize = 12.sp, color = Muted)
                     OutlinedTextField(
                         value = viewModel.apiKey.value,
                         onValueChange = { viewModel.apiKey.value = it },
-                        label = { Text("API Key") },
-                        modifier = Modifier.fillMaxWidth()
+                        label = { Text("Pega tu API Key") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
                     )
                 }
             },
             confirmButton = {
-                TextButton(onClick = { viewModel.saveApiKey(context, viewModel.apiKey.value) }) {
+                Button(onClick = { viewModel.saveApiKey(context, viewModel.apiKey.value) }) {
                     Text("Guardar")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.showSettings.value = false }) {
-                    Text("Cancelar")
+                    Text("Cerrar")
                 }
             }
         )
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(MaterialTheme.colorScheme.background)
         ) {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "IA Pro — Apps + Logos",
-                        fontWeight = FontWeight.Bold,
-                        color = Primary
-                    )
-                },
-                actions = {
+            // Header Premium
+            Surface(
+                color = Surface,
+                shadowElevation = 4.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(
+                            "IA Pro",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Primary
+                        )
+                        Text(
+                            "Premium • Apps + Logos + Corrección",
+                            fontSize = 12.sp,
+                            color = Muted
+                        )
+                    }
                     IconButton(onClick = { viewModel.showSettings.value = true }) {
                         Icon(Icons.Default.Settings, contentDescription = "Ajustes", tint = Primary)
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Surface)
-            )
+                }
+            }
 
+            // Chat
             LazyColumn(
                 state = listState,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(horizontal = 12.dp),
+                contentPadding = PaddingValues(vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(viewModel.messages, key = { it.id }) { message ->
                     MessageBubble(
                         message = message,
                         onSave = { msg ->
                             val saved = saveMessage(context, msg)
-                            snackbarMessage = if (saved) "Archivo guardado" else "Error al guardar"
+                            snackbarMessage = if (saved) "Guardado correctamente" else "No se pudo guardar"
                         }
                     )
                 }
 
                 if (viewModel.isLoading.value) {
-                    item { TypingIndicator() }
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Start
+                        ) {
+                            TypingIndicator()
+                        }
+                    }
                 }
             }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            // Modos
+            Surface(
+                color = Surface.copy(alpha = 0.9f),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                ChatMode.entries.forEach { mode ->
-                    FilterChip(
-                        selected = viewModel.currentMode.value == mode,
-                        onClick = { viewModel.setMode(mode) },
-                        label = { Text(mode.label, fontSize = 11.sp) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Primary,
-                            selectedLabelColor = Color.White
-                        )
-                    )
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 90.dp)
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            ChatMode.entries.forEach { mode ->
+                                FilterChip(
+                                    selected = viewModel.currentMode.value == mode,
+                                    onClick = { viewModel.setMode(mode) },
+                                    label = { Text(mode.label, fontSize = 11.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Primary,
+                                        selectedLabelColor = Color.White,
+                                        containerColor = Color(0xFF2A2A35)
+                                    )
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
+            // Input
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(12.dp),
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedTextField(
                     value = viewModel.inputText.value,
                     onValueChange = { viewModel.inputText.value = it },
                     modifier = Modifier.weight(1f),
                     placeholder = { Text("Describe tu app, logo o pega código...", color = Muted) },
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(20.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Primary,
-                        unfocusedBorderColor = Color(0xFF2A2A35),
+                        unfocusedBorderColor = Color(0xFF3A3A45),
                         focusedContainerColor = Color(0xFF12121A),
                         unfocusedContainerColor = Color(0xFF12121A)
                     ),
@@ -193,7 +229,8 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
                     onClick = { viewModel.sendMessage(context) },
                     containerColor = Primary,
                     contentColor = Color.White,
-                    modifier = Modifier.size(52.dp)
+                    modifier = Modifier.size(56.dp),
+                    elevation = FloatingActionButtonDefaults.elevation(6.dp)
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar")
                 }
@@ -205,53 +242,64 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
 @Composable
 fun MessageBubble(message: Message, onSave: (Message) -> Unit) {
     val isUser = message.isUser
-    val isCode = message.text.contains("```") || message.text.contains("<!DOCTYPE") || message.text.contains("fun ") || message.text.contains("package ")
+    val isCode = message.text.contains("```") ||
+            message.text.contains("<!DOCTYPE") ||
+            message.text.contains("<html") ||
+            message.text.contains("package ") ||
+            message.text.contains("fun ") ||
+            message.text.length > 400
 
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
         Surface(
-            color = if (isUser) Primary else Surface,
+            color = if (isUser) Primary else Color(0xFF1E1E28),
             shape = RoundedCornerShape(
-                topStart = 18.dp,
-                topEnd = 18.dp,
-                bottomStart = if (isUser) 18.dp else 4.dp,
-                bottomEnd = if (isUser) 4.dp else 18.dp
+                topStart = 20.dp,
+                topEnd = 20.dp,
+                bottomStart = if (isUser) 20.dp else 6.dp,
+                bottomEnd = if (isUser) 6.dp else 20.dp
             ),
-            modifier = Modifier.widthIn(max = 340.dp)
+            shadowElevation = 2.dp,
+            modifier = Modifier.widthIn(max = 320.dp)
         ) {
-            Column(modifier = Modifier.padding(14.dp)) {
+            Column(modifier = Modifier.padding(12.dp)) {
                 if (!isUser) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("IA Pro", color = Primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(
+                            "IA Pro",
+                            color = Primary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
                         if (message.text.isNotBlank() || message.imageBase64 != null) {
                             IconButton(
                                 onClick = { onSave(message) },
-                                modifier = Modifier.size(28.dp)
+                                modifier = Modifier.size(26.dp)
                             ) {
                                 Icon(
                                     Icons.Default.Download,
                                     contentDescription = "Guardar",
                                     tint = Primary,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
 
                 if (message.text.isNotBlank()) {
                     Text(
                         text = message.text,
                         color = Color.White,
-                        fontSize = if (isCode) 13.sp else 15.sp,
-                        lineHeight = if (isCode) 18.sp else 22.sp,
+                        fontSize = if (isCode) 12.5.sp else 15.sp,
+                        lineHeight = if (isCode) 17.sp else 21.sp,
                         fontFamily = if (isCode) FontFamily.Monospace else FontFamily.Default
                     )
                 }
@@ -266,8 +314,8 @@ fun MessageBubble(message: Message, onSave: (Message) -> Unit) {
                             contentDescription = "Imagen generada",
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(220.dp)
-                                .background(Color.White, RoundedCornerShape(12.dp)),
+                                .height(200.dp)
+                                .background(Color(0xFF0F0F13), RoundedCornerShape(12.dp)),
                             contentScale = ContentScale.Fit
                         )
                     }
@@ -281,13 +329,17 @@ fun MessageBubble(message: Message, onSave: (Message) -> Unit) {
 fun TypingIndicator() {
     Row(
         modifier = Modifier
-            .background(Surface, RoundedCornerShape(18.dp))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+            .background(Color(0xFF1E1E28), RoundedCornerShape(16.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         repeat(3) {
-            Box(modifier = Modifier.size(8.dp).background(Primary, RoundedCornerShape(50)))
+            Box(
+                modifier = Modifier
+                    .size(7.dp)
+                    .background(Primary, RoundedCornerShape(50))
+            )
         }
     }
 }
@@ -317,7 +369,7 @@ private fun saveMessage(context: Context, message: Message): Boolean {
 private fun saveImage(context: Context, base64: String): Boolean {
     return try {
         val bytes = Base64.decode(base64, Base64.DEFAULT)
-        val fileName = "IA_Pro_logo_${System.currentTimeMillis()}.png"
+        val fileName = "IA_Pro_${System.currentTimeMillis()}.png"
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val contentValues = ContentValues().apply {
