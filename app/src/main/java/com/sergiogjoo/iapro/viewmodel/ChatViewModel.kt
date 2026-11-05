@@ -1,8 +1,6 @@
 package com.sergiogjoo.iapro.viewmodel
 
 import android.content.Context
-import android.graphics.BitmapFactory
-import android.util.Base64
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.datastore.preferences.core.edit
@@ -35,6 +33,9 @@ enum class ChatMode(val label: String) {
     RESUMEN("Resumen"),
     CREATIVO("Creativo"),
     CODIGO("Código"),
+    APP_WEB("App Web"),
+    APP_ANDROID("App Android"),
+    CORREGIR("Corregir errores"),
     LOGO("Logo / Imagen")
 }
 
@@ -44,7 +45,7 @@ class ChatViewModel : ViewModel() {
 
     val messages = mutableStateListOf(
         Message(
-            text = "¡Hola! IA Pro + Gemini.\n\nAhora puedes generar **logos e imágenes**.\n\nSelecciona el modo **Logo / Imagen** y describe lo que quieres (ej: logo minimalista de un gato azul para una app).\n\nRecuerda poner tu API Key en Ajustes.",
+            text = "IA Pro — Generador de Apps + Corrección de Errores\n\nModos nuevos:\n• **App Web** → genera HTML/CSS/JS completo\n• **App Android** → genera estructura Kotlin + Compose\n• **Corregir errores** → pega tu código y el error, lo arreglo\n\nTambién: Chat, Logos e Imágenes.",
             isUser = false
         )
     )
@@ -90,10 +91,9 @@ class ChatViewModel : ViewModel() {
 
         viewModelScope.launch {
             val result = if (apiKey.value.isNotBlank()) {
-                if (currentMode.value == ChatMode.LOGO) {
-                    generateImage(text)
-                } else {
-                    callGeminiText(text, currentMode.value)
+                when (currentMode.value) {
+                    ChatMode.LOGO -> generateImage(text)
+                    else -> callGeminiText(text, currentMode.value)
                 }
             } else {
                 delay(800)
@@ -132,7 +132,6 @@ class ChatViewModel : ViewModel() {
                 return Pair("Error imagen (${response.code}): ${body.take(300)}", null)
             }
 
-            // Parse for inlineData
             val geminiResp = json.decodeFromString<GeminiImageResponse>(body)
             val inlineData = geminiResp.candidates?.firstOrNull()?.content?.parts
                 ?.firstOrNull { it.inlineData != null }?.inlineData
@@ -140,7 +139,7 @@ class ChatViewModel : ViewModel() {
             if (inlineData?.data != null) {
                 Pair("Logo / Imagen generada:", inlineData.data)
             } else {
-                Pair("No se pudo generar la imagen. Prueba otro prompt o verifica tu API Key.", null)
+                Pair("No se pudo generar la imagen. Prueba otro prompt.", null)
             }
 
         } catch (e: Exception) {
@@ -151,22 +150,45 @@ class ChatViewModel : ViewModel() {
     private suspend fun callGeminiText(userText: String, mode: ChatMode): Pair<String, String?> {
         return try {
             val systemPrompt = when (mode) {
+                ChatMode.APP_WEB -> """
+                    Eres un experto desarrollador web. Genera una aplicación web COMPLETA y funcional en un solo archivo HTML (con CSS y JS embebidos).
+                    Debe ser moderna, responsive y lista para abrir en el navegador.
+                    Incluye comentarios claros y estructura profesional.
+                    Responde ÚNICAMENTE con el código HTML completo.
+                """.trimIndent()
+
+                ChatMode.APP_ANDROID -> """
+                    Eres un experto desarrollador Android. Genera el código principal de una aplicación Android completa usando Kotlin + Jetpack Compose.
+                    Incluye:
+                    - MainActivity.kt
+                    - Pantalla principal funcional
+                    - Estructura clara
+                    - Comentarios útiles
+                    Da el código de forma organizada y listo para copiar a un proyecto.
+                """.trimIndent()
+
+                ChatMode.CORREGIR -> """
+                    Eres un experto en debugging. El usuario te va a pegar código (web o Android) junto con el error.
+                    Analiza el error, explica qué lo causa y proporciona el código corregido.
+                    Sé claro y directo.
+                """.trimIndent()
+
+                ChatMode.CODIGO -> "Proporciona código limpio, comentado y listo para usar. Explica brevemente."
                 ChatMode.PRO -> "Eres IA Pro Avanzada. Da respuestas detalladas, estructuradas y profesionales."
                 ChatMode.ANALISIS -> "Analiza el texto de forma estructurada con puntos claros."
                 ChatMode.RESUMEN -> "Haz un resumen ejecutivo claro y conciso."
                 ChatMode.CREATIVO -> "Genera ideas creativas y variantes."
-                ChatMode.CODIGO -> "Proporciona código limpio, comentado y listo para usar."
-                else -> "Responde de forma útil."
+                else -> "Responde de forma útil y profesional."
             }
 
             val requestBody = """
                 {
                   "contents": [{
-                    "parts": [{"text": "$systemPrompt\n\nUsuario: $userText"}]
+                    "parts": [{"text": "$systemPrompt\n\nSolicitud del usuario:\n$userText"}]
                   }],
                   "generationConfig": {
-                    "temperature": 0.7,
-                    "maxOutputTokens": 2048
+                    "temperature": 0.6,
+                    "maxOutputTokens": 8192
                   }
                 }
             """.trimIndent()
@@ -194,10 +216,12 @@ class ChatViewModel : ViewModel() {
     }
 
     private fun generateLocalResponse(userText: String, mode: ChatMode): String {
-        return if (mode == ChatMode.LOGO) {
-            "Modo Logo: Agrega tu API Key de Gemini para generar imágenes reales."
-        } else {
-            "**Respuesta local:** Agrega tu API Key para respuestas reales de Gemini."
+        return when (mode) {
+            ChatMode.APP_WEB, ChatMode.APP_ANDROID, ChatMode.CORREGIR ->
+                "Modo avanzado: Necesitas tu API Key de Gemini para generar aplicaciones o corregir errores."
+            ChatMode.LOGO ->
+                "Modo Logo: Agrega tu API Key para generar imágenes."
+            else -> "Agrega tu API Key para respuestas reales de Gemini."
         }
     }
 
@@ -207,48 +231,20 @@ class ChatViewModel : ViewModel() {
 }
 
 @Serializable
-data class GeminiResponse(
-    val candidates: List<Candidate>? = null
-)
-
+data class GeminiResponse(val candidates: List<Candidate>? = null)
 @Serializable
-data class GeminiImageResponse(
-    val candidates: List<ImageCandidate>? = null
-)
-
+data class GeminiImageResponse(val candidates: List<ImageCandidate>? = null)
 @Serializable
-data class Candidate(
-    val content: Content? = null
-)
-
+data class Candidate(val content: Content? = null)
 @Serializable
-data class ImageCandidate(
-    val content: ImageContent? = null
-)
-
+data class ImageCandidate(val content: ImageContent? = null)
 @Serializable
-data class Content(
-    val parts: List<Part>? = null
-)
-
+data class Content(val parts: List<Part>? = null)
 @Serializable
-data class ImageContent(
-    val parts: List<ImagePart>? = null
-)
-
+data class ImageContent(val parts: List<ImagePart>? = null)
 @Serializable
-data class Part(
-    val text: String? = null
-)
-
+data class Part(val text: String? = null)
 @Serializable
-data class ImagePart(
-    val text: String? = null,
-    val inlineData: InlineData? = null
-)
-
+data class ImagePart(val text: String? = null, val inlineData: InlineData? = null)
 @Serializable
-data class InlineData(
-    val mimeType: String? = null,
-    val data: String? = null
-)
+data class InlineData(val mimeType: String? = null, val data: String? = null)
