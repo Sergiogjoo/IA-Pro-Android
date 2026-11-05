@@ -1,6 +1,8 @@
 package com.sergiogjoo.iapro.viewmodel
 
 import android.content.Context
+import android.graphics.BitmapFactory
+import android.util.Base64
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.datastore.preferences.core.edit
@@ -23,6 +25,7 @@ import java.util.concurrent.TimeUnit
 data class Message(
     val text: String,
     val isUser: Boolean,
+    val imageBase64: String? = null,
     val id: Long = System.currentTimeMillis()
 )
 
@@ -31,7 +34,8 @@ enum class ChatMode(val label: String) {
     ANALISIS("Análisis"),
     RESUMEN("Resumen"),
     CREATIVO("Creativo"),
-    CODIGO("Código")
+    CODIGO("Código"),
+    LOGO("Logo / Imagen")
 }
 
 val Context.dataStore by preferencesDataStore(name = "settings")
@@ -40,7 +44,7 @@ class ChatViewModel : ViewModel() {
 
     val messages = mutableStateListOf(
         Message(
-            text = "¡Hola! Soy **IA Pro Avanzada** con integración real de Gemini.\n\nPara usar respuestas reales:\n1. Ve a Ajustes (icono arriba)\n2. Pega tu API Key de Google Gemini (gratis)\n3. Empieza a chatear\n\nSi no pones key, uso el modo local de respaldo.",
+            text = "¡Hola! IA Pro + Gemini.\n\nAhora puedes generar **logos e imágenes**.\n\nSelecciona el modo **Logo / Imagen** y describe lo que quieres (ej: logo minimalista de un gato azul para una app).\n\nRecuerda poner tu API Key en Ajustes.",
             isUser = false
         )
     )
@@ -52,8 +56,8 @@ class ChatViewModel : ViewModel() {
     var showSettings = mutableStateOf(false)
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
+        .connectTimeout(60, TimeUnit.SECONDS)
+        .readTimeout(90, TimeUnit.SECONDS)
         .build()
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -72,7 +76,7 @@ class ChatViewModel : ViewModel() {
             }
             apiKey.value = key.trim()
             showSettings.value = false
-            messages.add(Message("API Key guardada. Ahora las respuestas son reales con Gemini.", false))
+            messages.add(Message("API Key guardada.", false))
         }
     }
 
@@ -85,18 +89,66 @@ class ChatViewModel : ViewModel() {
         isLoading.value = true
 
         viewModelScope.launch {
-            val response = if (apiKey.value.isNotBlank()) {
-                callGemini(text, currentMode.value)
+            val result = if (apiKey.value.isNotBlank()) {
+                if (currentMode.value == ChatMode.LOGO) {
+                    generateImage(text)
+                } else {
+                    callGeminiText(text, currentMode.value)
+                }
             } else {
                 delay(800)
-                generateLocalResponse(text, currentMode.value)
+                Pair(generateLocalResponse(text, currentMode.value), null)
             }
-            messages.add(Message(text = response, isUser = false))
+            messages.add(Message(text = result.first, isUser = false, imageBase64 = result.second))
             isLoading.value = false
         }
     }
 
-    private suspend fun callGemini(userText: String, mode: ChatMode): String {
+    private suspend fun generateImage(prompt: String): Pair<String, String?> {
+        return try {
+            val requestBody = """
+                {
+                  "contents": [{
+                    "parts": [{"text": "Generate a high quality logo or image: $prompt. Clean, professional, modern design. Transparent or simple background preferred for logos."}]
+                  }],
+                  "generationConfig": {
+                    "responseModalities": ["IMAGE"],
+                    "imageConfig": {
+                      "aspectRatio": "1:1"
+                    }
+                  }
+                }
+            """.trimIndent()
+
+            val request = Request.Builder()
+                .url("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey.value}")
+                .post(requestBody.toRequestBody("application/json".toMediaType()))
+                .build()
+
+            val response = client.newCall(request).execute()
+            val body = response.body?.string() ?: return Pair("Error: respuesta vacía", null)
+
+            if (!response.isSuccessful) {
+                return Pair("Error imagen (${response.code}): ${body.take(300)}", null)
+            }
+
+            // Parse for inlineData
+            val geminiResp = json.decodeFromString<GeminiImageResponse>(body)
+            val inlineData = geminiResp.candidates?.firstOrNull()?.content?.parts
+                ?.firstOrNull { it.inlineData != null }?.inlineData
+
+            if (inlineData?.data != null) {
+                Pair("Logo / Imagen generada:", inlineData.data)
+            } else {
+                Pair("No se pudo generar la imagen. Prueba otro prompt o verifica tu API Key.", null)
+            }
+
+        } catch (e: Exception) {
+            Pair("Error generando imagen: ${e.message}", null)
+        }
+    }
+
+    private suspend fun callGeminiText(userText: String, mode: ChatMode): Pair<String, String?> {
         return try {
             val systemPrompt = when (mode) {
                 ChatMode.PRO -> "Eres IA Pro Avanzada. Da respuestas detalladas, estructuradas y profesionales."
@@ -104,6 +156,7 @@ class ChatViewModel : ViewModel() {
                 ChatMode.RESUMEN -> "Haz un resumen ejecutivo claro y conciso."
                 ChatMode.CREATIVO -> "Genera ideas creativas y variantes."
                 ChatMode.CODIGO -> "Proporciona código limpio, comentado y listo para usar."
+                else -> "Responde de forma útil."
             }
 
             val requestBody = """
@@ -124,26 +177,27 @@ class ChatViewModel : ViewModel() {
                 .build()
 
             val response = client.newCall(request).execute()
-            val body = response.body?.string() ?: return "Error: respuesta vacía"
+            val body = response.body?.string() ?: return Pair("Error: respuesta vacía", null)
 
             if (!response.isSuccessful) {
-                return "Error API (${response.code}): ${body.take(200)}"
+                return Pair("Error API (${response.code}): ${body.take(200)}", null)
             }
 
             val geminiResponse = json.decodeFromString<GeminiResponse>(body)
-            geminiResponse.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
-                ?: "No se pudo obtener respuesta de Gemini."
+            val text = geminiResponse.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+                ?: "No se pudo obtener respuesta."
+            Pair(text, null)
 
         } catch (e: Exception) {
-            "Error de conexión: ${e.message}\n\nVerifica tu API Key y conexión a internet."
+            Pair("Error de conexión: ${e.message}", null)
         }
     }
 
     private fun generateLocalResponse(userText: String, mode: ChatMode): String {
-        // Fallback local (igual que antes)
-        return when (mode) {
-            ChatMode.PRO -> "**Respuesta local (sin API Key):**\n\nHe analizado: \"$userText\"\n\nPara respuestas reales con Gemini, introduce tu API Key en Ajustes."
-            else -> "Modo local activo. Agrega tu API Key de Gemini para respuestas reales."
+        return if (mode == ChatMode.LOGO) {
+            "Modo Logo: Agrega tu API Key de Gemini para generar imágenes reales."
+        } else {
+            "**Respuesta local:** Agrega tu API Key para respuestas reales de Gemini."
         }
     }
 
@@ -158,8 +212,18 @@ data class GeminiResponse(
 )
 
 @Serializable
+data class GeminiImageResponse(
+    val candidates: List<ImageCandidate>? = null
+)
+
+@Serializable
 data class Candidate(
     val content: Content? = null
+)
+
+@Serializable
+data class ImageCandidate(
+    val content: ImageContent? = null
 )
 
 @Serializable
@@ -168,6 +232,23 @@ data class Content(
 )
 
 @Serializable
+data class ImageContent(
+    val parts: List<ImagePart>? = null
+)
+
+@Serializable
 data class Part(
     val text: String? = null
+)
+
+@Serializable
+data class ImagePart(
+    val text: String? = null,
+    val inlineData: InlineData? = null
+)
+
+@Serializable
+data class InlineData(
+    val mimeType: String? = null,
+    val data: String? = null
 )

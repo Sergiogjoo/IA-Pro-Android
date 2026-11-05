@@ -1,6 +1,8 @@
 package com.sergiogjoo.iapro.ui
 
-import android.content.Context
+import android.graphics.BitmapFactory
+import android.util.Base64
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,6 +19,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -83,7 +87,7 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
         TopAppBar(
             title = {
                 Text(
-                    text = "IA Pro + Gemini",
+                    text = "IA Pro + Gemini + Logos",
                     fontWeight = FontWeight.Bold,
                     color = Primary
                 )
@@ -92,7 +96,6 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
                 IconButton(onClick = { viewModel.showSettings.value = true }) {
                     Icon(Icons.Default.Settings, contentDescription = "Ajustes", tint = Primary)
                 }
-                Spacer(modifier = Modifier.width(8.dp))
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Surface)
         )
@@ -119,13 +122,13 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             ChatMode.entries.forEach { mode ->
                 FilterChip(
                     selected = viewModel.currentMode.value == mode,
                     onClick = { viewModel.setMode(mode) },
-                    label = { Text(mode.label, fontSize = 13.sp) },
+                    label = { Text(mode.label, fontSize = 12.sp) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = Primary,
                         selectedLabelColor = Color.White
@@ -145,7 +148,7 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
                 value = viewModel.inputText.value,
                 onValueChange = { viewModel.inputText.value = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Escribe tu mensaje...", color = Muted) },
+                placeholder = { Text("Describe tu logo o mensaje...", color = Muted) },
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Primary,
@@ -192,7 +195,25 @@ fun MessageBubble(message: Message) {
                     Text("IA Pro", color = Primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     Spacer(modifier = Modifier.height(4.dp))
                 }
-                Text(text = message.text, color = Color.White, fontSize = 15.sp, lineHeight = 22.sp)
+                if (message.text.isNotBlank()) {
+                    Text(text = message.text, color = Color.White, fontSize = 15.sp, lineHeight = 22.sp)
+                }
+                message.imageBase64?.let { base64 ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val bytes = Base64.decode(base64, Base64.DEFAULT)
+                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    bitmap?.let {
+                        Image(
+                            bitmap = it.asImageBitmap(),
+                            contentDescription = "Imagen generada",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(220.dp)
+                                .background(Color.White, RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+                }
             }
         }
     }

@@ -1,38 +1,27 @@
-# IA Pro Avanzada - Android + Gemini
+# IA Pro Avanzada - Android + Gemini + Logos
 
-Aplicación nativa de **Inteligencia Artificial Avanzada** para Android con **integración real de Google Gemini**.
+Aplicación nativa de Inteligencia Artificial para Android con:
 
-## Características
+- Chat inteligente con Gemini
+- **Generación de logos e imágenes** (modo Logo / Imagen)
+- Múltiples modos de respuesta
+- API Key guardada en el dispositivo
 
-- Chat inteligente con memoria
-- **Integración real con Gemini 2.0 Flash** (gratis)
-- Modos: Pro, Análisis, Resumen, Creativo, Código
-- API Key guardada de forma segura en el dispositivo
-- Fallback local si no hay key
-- Interfaz moderna Material 3
+## Cómo generar logos e imágenes
 
-## Cómo obtener tu API Key de Gemini (Gratis)
-
-1. Ve a [Google AI Studio](https://aistudio.google.com/apikey)
-2. Inicia sesión con tu cuenta Google
-3. Crea una nueva API Key
-4. Cópiala
-5. En la app, pulsa el icono de **Ajustes** (engranaje) y pégala
-
-## Cómo usar el proyecto
-
-1. Clona o descarga este repositorio
-2. Ábrelo en Android Studio
-3. Sincroniza Gradle
-4. Ejecuta en dispositivo o emulador
-5. Introduce tu API Key de Gemini
+1. Obtén tu API Key gratuita en [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+2. En la app, pulsa el icono de Ajustes y pega la key
+3. Selecciona el modo **Logo / Imagen**
+4. Escribe una descripción clara (ej: "logo minimalista de un león dorado para una marca de café, fondo blanco")
+5. Espera unos segundos y verás la imagen generada
 
 ## Requisitos
 
 - Android Studio
 - minSdk 24+
-- Conexión a internet (para Gemini)
+- Conexión a internet
+- API Key de Gemini (gratuita)
 
 ---
 
-Hecho con ❤️ por Grok para Sergiogjoo
+Actualizado por Grok para Sergiogjoo
