@@ -3,11 +3,15 @@ package com.sergiogjoo.iapro.viewmodel
 import android.content.Context
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sergiogjoo.iapro.data.AppDatabase
+import com.sergiogjoo.iapro.data.ChatEntity
+import com.sergiogjoo.iapro.data.MessageEntity
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -45,7 +49,7 @@ class ChatViewModel : ViewModel() {
 
     val messages = mutableStateListOf(
         Message(
-            text = "IA Pro — Generador de Apps + Corrección de Errores\n\nModos nuevos:\n• **App Web** → genera HTML/CSS/JS completo\n• **App Android** → genera estructura Kotlin + Compose\n• **Corregir errores** → pega tu código y el error, lo arreglo\n\nTambién: Chat, Logos e Imágenes.",
+            text = "IA Pro Premium\n\nHistorial guardado automáticamente.\nTema claro/oscuro disponible en Ajustes.\n\nModos: Apps Web, Android, Corregir errores, Logos...",
             isUser = false
         )
     )
@@ -55,13 +59,46 @@ class ChatViewModel : ViewModel() {
     var inputText = mutableStateOf("")
     var apiKey = mutableStateOf("")
     var showSettings = mutableStateOf(false)
+    var darkTheme = mutableStateOf(true)
+    var currentChatId = mutableStateOf(0L)
 
+    private lateinit var database: AppDatabase
     private val client = OkHttpClient.Builder()
         .connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(90, TimeUnit.SECONDS)
         .build()
-
     private val json = Json { ignoreUnknownKeys = true }
+
+    fun initDatabase(context: Context) {
+        database = AppDatabase.getDatabase(context)
+        viewModelScope.launch {
+            // Cargar tema
+            val isDark = context.dataStore.data.map { it[booleanPreferencesKey("dark_theme")] ?: true }.first()
+            darkTheme.value = isDark
+
+            // Cargar o crear chat
+            val chats = database.chatDao().getAllChats().first()
+            if (chats.isEmpty()) {
+                val id = database.chatDao().insertChat(ChatEntity(title = "Nuevo chat"))
+                currentChatId.value = id
+            } else {
+                currentChatId.value = chats.first().id
+                loadMessages(chats.first().id)
+            }
+        }
+    }
+
+    private suspend fun loadMessages(chatId: Long) {
+        val msgs = database.chatDao().getMessages(chatId).first()
+        messages.clear()
+        if (msgs.isEmpty()) {
+            messages.add(Message("Nuevo chat iniciado.", false))
+        } else {
+            msgs.forEach {
+                messages.add(Message(it.text, it.isUser, it.imageBase64, it.id))
+            }
+        }
+    }
 
     fun loadApiKey(context: Context) {
         viewModelScope.launch {
@@ -77,7 +114,14 @@ class ChatViewModel : ViewModel() {
             }
             apiKey.value = key.trim()
             showSettings.value = false
-            messages.add(Message("API Key guardada.", false))
+        }
+    }
+
+    fun toggleTheme(context: Context) {
+        viewModelScope.launch {
+            val newValue = !darkTheme.value
+            darkTheme.value = newValue
+            context.dataStore.edit { it[booleanPreferencesKey("dark_theme")] = newValue }
         }
     }
 
@@ -85,11 +129,17 @@ class ChatViewModel : ViewModel() {
         val text = inputText.value.trim()
         if (text.isEmpty() || isLoading.value) return
 
-        messages.add(Message(text = text, isUser = true))
+        val userMsg = Message(text = text, isUser = true)
+        messages.add(userMsg)
         inputText.value = ""
         isLoading.value = true
 
         viewModelScope.launch {
+            // Guardar mensaje usuario
+            database.chatDao().insertMessage(
+                MessageEntity(chatId = currentChatId.value, text = text, isUser = true)
+            )
+
             val result = if (apiKey.value.isNotBlank()) {
                 when (currentMode.value) {
                     ChatMode.LOGO -> generateImage(text)
@@ -97,9 +147,21 @@ class ChatViewModel : ViewModel() {
                 }
             } else {
                 delay(800)
-                Pair(generateLocalResponse(text, currentMode.value), null)
+                Pair("Agrega tu API Key en Ajustes para usar Gemini.", null)
             }
-            messages.add(Message(text = result.first, isUser = false, imageBase64 = result.second))
+
+            val botMsg = Message(text = result.first, isUser = false, imageBase64 = result.second)
+            messages.add(botMsg)
+
+            // Guardar respuesta
+            database.chatDao().insertMessage(
+                MessageEntity(
+                    chatId = currentChatId.value,
+                    text = result.first,
+                    isUser = false,
+                    imageBase64 = result.second
+                )
+            )
             isLoading.value = false
         }
     }
@@ -109,13 +171,11 @@ class ChatViewModel : ViewModel() {
             val requestBody = """
                 {
                   "contents": [{
-                    "parts": [{"text": "Generate a high quality logo or image: $prompt. Clean, professional, modern design. Transparent or simple background preferred for logos."}]
+                    "parts": [{"text": "Generate a high quality logo or image: $prompt. Clean, professional, modern design."}]
                   }],
                   "generationConfig": {
                     "responseModalities": ["IMAGE"],
-                    "imageConfig": {
-                      "aspectRatio": "1:1"
-                    }
+                    "imageConfig": { "aspectRatio": "1:1" }
                   }
                 }
             """.trimIndent()
@@ -126,70 +186,32 @@ class ChatViewModel : ViewModel() {
                 .build()
 
             val response = client.newCall(request).execute()
-            val body = response.body?.string() ?: return Pair("Error: respuesta vacía", null)
-
-            if (!response.isSuccessful) {
-                return Pair("Error imagen (${response.code}): ${body.take(300)}", null)
-            }
+            val body = response.body?.string() ?: return Pair("Error", null)
+            if (!response.isSuccessful) return Pair("Error imagen", null)
 
             val geminiResp = json.decodeFromString<GeminiImageResponse>(body)
-            val inlineData = geminiResp.candidates?.firstOrNull()?.content?.parts
-                ?.firstOrNull { it.inlineData != null }?.inlineData
-
-            if (inlineData?.data != null) {
-                Pair("Logo / Imagen generada:", inlineData.data)
-            } else {
-                Pair("No se pudo generar la imagen. Prueba otro prompt.", null)
-            }
-
+            val data = geminiResp.candidates?.firstOrNull()?.content?.parts
+                ?.firstOrNull { it.inlineData != null }?.inlineData?.data
+            if (data != null) Pair("Imagen generada:", data) else Pair("No se pudo generar.", null)
         } catch (e: Exception) {
-            Pair("Error generando imagen: ${e.message}", null)
+            Pair("Error: ${e.message}", null)
         }
     }
 
     private suspend fun callGeminiText(userText: String, mode: ChatMode): Pair<String, String?> {
         return try {
             val systemPrompt = when (mode) {
-                ChatMode.APP_WEB -> """
-                    Eres un experto desarrollador web. Genera una aplicación web COMPLETA y funcional en un solo archivo HTML (con CSS y JS embebidos).
-                    Debe ser moderna, responsive y lista para abrir en el navegador.
-                    Incluye comentarios claros y estructura profesional.
-                    Responde ÚNICAMENTE con el código HTML completo.
-                """.trimIndent()
-
-                ChatMode.APP_ANDROID -> """
-                    Eres un experto desarrollador Android. Genera el código principal de una aplicación Android completa usando Kotlin + Jetpack Compose.
-                    Incluye:
-                    - MainActivity.kt
-                    - Pantalla principal funcional
-                    - Estructura clara
-                    - Comentarios útiles
-                    Da el código de forma organizada y listo para copiar a un proyecto.
-                """.trimIndent()
-
-                ChatMode.CORREGIR -> """
-                    Eres un experto en debugging. El usuario te va a pegar código (web o Android) junto con el error.
-                    Analiza el error, explica qué lo causa y proporciona el código corregido.
-                    Sé claro y directo.
-                """.trimIndent()
-
-                ChatMode.CODIGO -> "Proporciona código limpio, comentado y listo para usar. Explica brevemente."
-                ChatMode.PRO -> "Eres IA Pro Avanzada. Da respuestas detalladas, estructuradas y profesionales."
-                ChatMode.ANALISIS -> "Analiza el texto de forma estructurada con puntos claros."
-                ChatMode.RESUMEN -> "Haz un resumen ejecutivo claro y conciso."
-                ChatMode.CREATIVO -> "Genera ideas creativas y variantes."
-                else -> "Responde de forma útil y profesional."
+                ChatMode.APP_WEB -> "Genera una aplicación web COMPLETA en un solo archivo HTML (CSS y JS embebidos). Moderna y funcional."
+                ChatMode.APP_ANDROID -> "Genera código Android completo con Kotlin + Jetpack Compose. Estructura clara y funcional."
+                ChatMode.CORREGIR -> "Analiza el error, explica la causa y da el código corregido."
+                ChatMode.CODIGO -> "Proporciona código limpio y comentado."
+                else -> "Responde de forma profesional y útil."
             }
 
             val requestBody = """
                 {
-                  "contents": [{
-                    "parts": [{"text": "$systemPrompt\n\nSolicitud del usuario:\n$userText"}]
-                  }],
-                  "generationConfig": {
-                    "temperature": 0.6,
-                    "maxOutputTokens": 8192
-                  }
+                  "contents": [{"parts": [{"text": "$systemPrompt\n\n$userText"}]}],
+                  "generationConfig": {"temperature": 0.6, "maxOutputTokens": 8192}
                 }
             """.trimIndent()
 
@@ -199,29 +221,14 @@ class ChatViewModel : ViewModel() {
                 .build()
 
             val response = client.newCall(request).execute()
-            val body = response.body?.string() ?: return Pair("Error: respuesta vacía", null)
+            val body = response.body?.string() ?: return Pair("Error", null)
+            if (!response.isSuccessful) return Pair("Error API", null)
 
-            if (!response.isSuccessful) {
-                return Pair("Error API (${response.code}): ${body.take(200)}", null)
-            }
-
-            val geminiResponse = json.decodeFromString<GeminiResponse>(body)
-            val text = geminiResponse.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
-                ?: "No se pudo obtener respuesta."
+            val resp = json.decodeFromString<GeminiResponse>(body)
+            val text = resp.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: "Sin respuesta"
             Pair(text, null)
-
         } catch (e: Exception) {
-            Pair("Error de conexión: ${e.message}", null)
-        }
-    }
-
-    private fun generateLocalResponse(userText: String, mode: ChatMode): String {
-        return when (mode) {
-            ChatMode.APP_WEB, ChatMode.APP_ANDROID, ChatMode.CORREGIR ->
-                "Modo avanzado: Necesitas tu API Key de Gemini para generar aplicaciones o corregir errores."
-            ChatMode.LOGO ->
-                "Modo Logo: Agrega tu API Key para generar imágenes."
-            else -> "Agrega tu API Key para respuestas reales de Gemini."
+            Pair("Error: ${e.message}", null)
         }
     }
 
@@ -230,21 +237,12 @@ class ChatViewModel : ViewModel() {
     }
 }
 
-@Serializable
-data class GeminiResponse(val candidates: List<Candidate>? = null)
-@Serializable
-data class GeminiImageResponse(val candidates: List<ImageCandidate>? = null)
-@Serializable
-data class Candidate(val content: Content? = null)
-@Serializable
-data class ImageCandidate(val content: ImageContent? = null)
-@Serializable
-data class Content(val parts: List<Part>? = null)
-@Serializable
-data class ImageContent(val parts: List<ImagePart>? = null)
-@Serializable
-data class Part(val text: String? = null)
-@Serializable
-data class ImagePart(val text: String? = null, val inlineData: InlineData? = null)
-@Serializable
-data class InlineData(val mimeType: String? = null, val data: String? = null)
+@Serializable data class GeminiResponse(val candidates: List<Candidate>? = null)
+@Serializable data class GeminiImageResponse(val candidates: List<ImageCandidate>? = null)
+@Serializable data class Candidate(val content: Content? = null)
+@Serializable data class ImageCandidate(val content: ImageContent? = null)
+@Serializable data class Content(val parts: List<Part>? = null)
+@Serializable data class ImageContent(val parts: List<ImagePart>? = null)
+@Serializable data class Part(val text: String? = null)
+@Serializable data class ImagePart(val text: String? = null, val inlineData: InlineData? = null)
+@Serializable data class InlineData(val mimeType: String? = null, val data: String? = null)
