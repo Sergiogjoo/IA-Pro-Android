@@ -1,5 +1,6 @@
 package com.sergiogjoo.iapro.ui
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,11 +11,13 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -26,19 +29,50 @@ import com.sergiogjoo.iapro.ui.theme.Surface
 import com.sergiogjoo.iapro.viewmodel.ChatMode
 import com.sergiogjoo.iapro.viewmodel.ChatViewModel
 import com.sergiogjoo.iapro.viewmodel.Message
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
+    val context = LocalContext.current
     val listState = rememberLazyListState()
-    val coroutineScope = rememberCoroutineScope()
 
-    // Auto-scroll al final
+    LaunchedEffect(Unit) {
+        viewModel.loadApiKey(context)
+    }
+
     LaunchedEffect(viewModel.messages.size) {
         if (viewModel.messages.isNotEmpty()) {
             listState.animateScrollToItem(viewModel.messages.size - 1)
         }
+    }
+
+    if (viewModel.showSettings.value) {
+        AlertDialog(
+            onDismissRequest = { viewModel.showSettings.value = false },
+            title = { Text("API Key de Gemini") },
+            text = {
+                Column {
+                    Text("Obtén una key gratis en:\naistudio.google.com/apikey", fontSize = 13.sp, color = Muted)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = viewModel.apiKey.value,
+                        onValueChange = { viewModel.apiKey.value = it },
+                        label = { Text("API Key") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.saveApiKey(context, viewModel.apiKey.value) }) {
+                    Text("Guardar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.showSettings.value = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 
     Column(
@@ -46,36 +80,23 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Header
         TopAppBar(
             title = {
                 Text(
-                    text = "IA Pro Avanzada",
+                    text = "IA Pro + Gemini",
                     fontWeight = FontWeight.Bold,
                     color = Primary
                 )
             },
             actions = {
-                Surface(
-                    color = Color(0xFF22C55E).copy(alpha = 0.2f),
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Text(
-                        text = "GRATIS • Local",
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        color = Color(0xFF4ADE80),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                IconButton(onClick = { viewModel.showSettings.value = true }) {
+                    Icon(Icons.Default.Settings, contentDescription = "Ajustes", tint = Primary)
                 }
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(8.dp))
             },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Surface
-            )
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = Surface)
         )
 
-        // Mensajes
         LazyColumn(
             state = listState,
             modifier = Modifier
@@ -90,13 +111,10 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
             }
 
             if (viewModel.isLoading.value) {
-                item {
-                    TypingIndicator()
-                }
+                item { TypingIndicator() }
             }
         }
 
-        // Modos
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -116,7 +134,6 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
             }
         }
 
-        // Input
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -138,21 +155,16 @@ fun ChatScreen(viewModel: ChatViewModel = viewModel()) {
                 ),
                 maxLines = 4,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(
-                    onSend = { viewModel.sendMessage() }
-                )
+                keyboardActions = KeyboardActions(onSend = { viewModel.sendMessage(context) })
             )
 
             FloatingActionButton(
-                onClick = { viewModel.sendMessage() },
+                onClick = { viewModel.sendMessage(context) },
                 containerColor = Primary,
                 contentColor = Color.White,
                 modifier = Modifier.size(52.dp)
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Send,
-                    contentDescription = "Enviar"
-                )
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Enviar")
             }
         }
     }
@@ -173,24 +185,14 @@ fun MessageBubble(message: Message) {
                 bottomStart = if (isUser) 18.dp else 4.dp,
                 bottomEnd = if (isUser) 4.dp else 18.dp
             ),
-            modifier = Modifier.widthIn(max = 320.dp)
+            modifier = Modifier.widthIn(max = 340.dp)
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
                 if (!isUser) {
-                    Text(
-                        text = "IA Pro",
-                        color = Primary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
+                    Text("IA Pro", color = Primary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     Spacer(modifier = Modifier.height(4.dp))
                 }
-                Text(
-                    text = message.text,
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    lineHeight = 22.sp
-                )
+                Text(text = message.text, color = Color.White, fontSize = 15.sp, lineHeight = 22.sp)
             }
         }
     }
@@ -206,11 +208,7 @@ fun TypingIndicator() {
         verticalAlignment = Alignment.CenterVertically
     ) {
         repeat(3) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .background(Primary, RoundedCornerShape(50))
-            )
+            Box(modifier = Modifier.size(8.dp).background(Primary, RoundedCornerShape(50)))
         }
     }
 }

@@ -1,56 +1,37 @@
-# IA Pro Avanzada - Android
+# IA Pro Avanzada - Android + Gemini
 
-Aplicación nativa de **Inteligencia Artificial Avanzada Pro** para Android.
-
-Creada completamente gratis con **Kotlin + Jetpack Compose**.
+Aplicación nativa de **Inteligencia Artificial Avanzada** para Android con **integración real de Google Gemini**.
 
 ## Características
 
-- Chat inteligente con memoria de conversación
-- **Modos Pro**:
-  - Pro (respuestas elaboradas)
-  - Análisis
-  - Resumen
-  - Creativo
-  - Código
-- Interfaz moderna Material 3 (tema oscuro)
-- 100% local (no necesita API keys ni internet)
-- Lista para compilar y instalar
+- Chat inteligente con memoria
+- **Integración real con Gemini 2.0 Flash** (gratis)
+- Modos: Pro, Análisis, Resumen, Creativo, Código
+- API Key guardada de forma segura en el dispositivo
+- Fallback local si no hay key
+- Interfaz moderna Material 3
 
-## Cómo usar
+## Cómo obtener tu API Key de Gemini (Gratis)
 
-1. Clona el repositorio:
-```bash
-git clone https://github.com/Sergiogjoo/IA-Pro-Android.git
-```
+1. Ve a [Google AI Studio](https://aistudio.google.com/apikey)
+2. Inicia sesión con tu cuenta Google
+3. Crea una nueva API Key
+4. Cópiala
+5. En la app, pulsa el icono de **Ajustes** (engranaje) y pégala
 
-2. Abre el proyecto en **Android Studio** (Hedgehog o más reciente recomendado)
+## Cómo usar el proyecto
 
+1. Clona o descarga este repositorio
+2. Ábrelo en Android Studio
 3. Sincroniza Gradle
-
-4. Ejecuta en un emulador o dispositivo físico (minSdk 24)
-
-## Estructura del proyecto
-
-```
-app/
-├─ src/main/java/com/sergiogjoo/iapro/
-│   ├─ MainActivity.kt
-│   ├─ ui/
-│   │   ├─ ChatScreen.kt
-│   │   ├─ theme/
-│   │   └─ ...
-│   └─ viewmodel/
-│       └─ ChatViewModel.kt
-└─ ...
-```
+4. Ejecuta en dispositivo o emulador
+5. Introduce tu API Key de Gemini
 
 ## Requisitos
 
 - Android Studio
-- JDK 17+
-- Android SDK 34+
-- minSdk 24 (Android 7.0+)
+- minSdk 24+
+- Conexión a internet (para Gemini)
 
 ---
 
