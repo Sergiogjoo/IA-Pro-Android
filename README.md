@@ -1,35 +1,29 @@
 # IA Pro — Generador de Apps + Logos + Corrección de Errores
 
-Aplicación Android con Gemini que puede:
+Ahora puedes **guardar archivos** directamente desde el chat.
 
-- **Generar aplicaciones web completas** (HTML + CSS + JS en un solo archivo)
-- **Generar aplicaciones Android** (Kotlin + Jetpack Compose)
-- **Corregir errores** de código web y nativo
-- Generar **logos e imágenes**
-- Chat inteligente en varios modos
+## Novedades
 
-## Modos disponibles
+- Botón de **descargar** en cada respuesta de la IA
+- Guarda código como `.html`, `.kt` o `.txt` en la carpeta Descargas
+- Guarda imágenes/logos en la galería (carpeta Pictures/IA_Pro)
+- Mejor formato de código (fuente monoespaciada cuando detecta código)
 
-| Modo            | Para qué sirve                          |
-|-----------------|-------------------------------------------|
-| App Web         | Genera web apps completas                 |
-| App Android     | Genera código Android (Compose)         |
-| Corregir errores| Arregla bugs de web o Android             |
-| Logo / Imagen   | Genera logos e imágenes                  |
-| Código / Pro / etc. | Respuestas generales y código      |
+## Modos
 
-## Uso rápido
+| Modo              | Qué hace                              |
+|-------------------|------------------------------------------|
+| App Web           | Genera web apps completas                |
+| App Android       | Genera código Android (Compose)        |
+| Corregir errores  | Arregla bugs                             |
+| Logo / Imagen     | Genera logos e imágenes                 |
 
-1. Consigue tu API Key gratis en [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-2. En la app → icono de Ajustes → pega la key
-3. Elige el modo (ej: **App Web**) y describe lo que quieres
+## Uso
 
-### Ejemplos de prompts
-
-- **App Web**: "Crea una calculadora moderna y responsive"
-- **App Android**: "Crea una app de lista de tareas con Jetpack Compose"
-- **Corregir**: Pega el código + el mensaje de error
+1. Pon tu API Key de Gemini
+2. Elige un modo y genera
+3. Pulsa el icono de **descarga** en la respuesta para guardar el archivo
 
 ---
 
-Repositorio actualizado por Grok
+Actualizado por Grok
