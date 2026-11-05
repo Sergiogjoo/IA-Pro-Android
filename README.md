@@ -1,39 +1,27 @@
 # IA Pro — Versión Premium Completa
 
-Aplicación Android premium con Gemini para:
+Ahora con **historial de chats** y **temas claro/oscuro**.
 
-- Generar **aplicaciones web completas** (HTML + CSS + JS)
-- Generar **aplicaciones Android** (Kotlin + Jetpack Compose)
-- **Corregir errores** de código
-- Crear **logos e imágenes**
-- Chat inteligente en múltiples modos
-- Guardar archivos y imágenes fácilmente
+## Novedades
 
-## Características Premium
+- Historial de conversaciones (se guarda automáticamente)
+- Tema claro y oscuro (se puede cambiar)
+- Interfaz premium mejorada
+- Generación de apps web y Android
+- Corrección de errores
+- Generación de logos e imágenes
+- Guardar archivos
 
-- Interfaz moderna y oscura profesional
-- Generación de código completo y listo para usar
-- Guardado de archivos en Descargas / Galería
-- Formato de código mejorado (fuente monoespaciada)
-- Múltiples modos especializados
+## Cómo usar el historial y temas
 
-## Cómo empezar
+El historial se guarda automáticamente en el dispositivo.
+Para cambiar el tema, usa el interruptor en Ajustes.
 
-1. Clona o descarga este repositorio
-2. Ábrelo en Android Studio
-3. Sincroniza Gradle
-4. Obtén tu API Key gratuita en [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-5. En la app → icono de Ajustes → pega la key
-6. Elige un modo y empieza a crear
+## Requisitos
 
-## Modos disponibles
-
-- **App Web** → Aplicaciones web completas
-- **App Android** → Código Android nativo
-- **Corregir errores** → Debugging
-- **Logo / Imagen** → Generación de imágenes
-- **Código / Pro / Análisis / Resumen / Creativo**
+- Android Studio
+- API Key de Gemini (gratis en aistudio.google.com/apikey)
 
 ---
 
-**IA Pro Premium** — Hecho para Sergiogjoo
+**IA Pro Premium 2.0** — Sergiogjoo
